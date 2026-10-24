@@ -93,7 +93,9 @@ body {
   background: #fff; color: #000; margin: 0 auto; padding: 32px;
   box-shadow: 0 1px 4px rgba(0,0,0,.12);
 }
-.invoice.paper-a4 { max-width: 794px; min-height: 600px; }
+/* A4 is 794 x 1123 px on screen; the column layout pushes the footer to the bottom. */
+.invoice.paper-a4 { max-width: 794px; min-height: 1123px; display: flex; flex-direction: column; }
+.invoice { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 .invoice.paper-receipt { max-width: 302px; padding: 12px; font-size: 12px; }
 .inv-head { display: flex; align-items: center; gap: 16px; margin-bottom: 16px; }
 .inv-head.align-center { flex-direction: column; text-align: center; gap: 6px; }
@@ -102,17 +104,25 @@ body {
 .inv-head.align-end .inv-head-text { text-align: start; }
 .inv-head-text { flex: 1; }
 .inv-head img { object-fit: contain; max-width: 100%; }
-.inv-store { font-size: 1.5em; font-weight: 700; }
-.inv-title { font-size: 1.3em; font-weight: 700; text-align: center; border-top: 2px solid #000; border-bottom: 2px solid #000; padding: 4px 0; margin: 10px 0; }
+.inv-store { font-size: 1.5em; font-weight: 700; color: var(--accent); }
+.inv-title { font-size: 1.3em; font-weight: 700; text-align: center; color: var(--accent); border-top: 2px solid var(--accent); border-bottom: 2px solid var(--accent); padding: 4px 0; margin: 10px 0; }
 .inv-meta { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 4px 16px; margin-bottom: 10px; }
 .inv-cust { margin-bottom: 12px; }
 .inv-cust div, .inv-meta div { overflow-wrap: anywhere; }
 .inv-table { width: 100%; border-collapse: collapse; }
 .inv-table th, .inv-table td { border-bottom: 1px solid #ccc; padding: 6px 4px; text-align: start; vertical-align: top; }
-.inv-table th { border-bottom: 2px solid #000; }
+.inv-table th { border-bottom: 2px solid #000; color: var(--accent); }
 .inv-table .r { text-align: end; }
-.inv-sum { display: flex; justify-content: space-between; font-size: 1.25em; font-weight: 700; border-top: 2px solid #000; margin-top: 8px; padding-top: 6px; }
+.inv-table .inv-total td { font-weight: 700; font-size: 1.15em; color: var(--accent); border-top: 2px solid #000; border-bottom: 0; }
+/* A4: a simple grid, with the chosen fill on even product rows (not the total row). */
+.paper-a4 .inv-table th, .paper-a4 .inv-table td { border: 1px solid #999; padding: 6px 8px; }
+.paper-a4 .inv-table tbody tr:nth-child(even) td { background: var(--row); }
+.paper-a4 .inv-table .inv-total td { border: 1px solid #999; }
+/* "PAID" is plain bold text under the total on the start side: left in English, right in Arabic. */
+.inv-paid-row { margin-top: 10px; text-align: start; }
+.inv-paid { font-size: 1.3em; font-weight: 700; color: var(--accent); }
 .inv-foot { margin-top: 24px; text-align: center; white-space: pre-line; }
+.paper-a4 .inv-foot { margin-top: auto; padding-top: 24px; }
 .paper-receipt .inv-store { font-size: 1.3em; }
 .paper-receipt .inv-meta { display: block; }
 .paper-receipt .inv-table th, .paper-receipt .inv-table td { padding: 3px 2px; }
@@ -127,4 +137,6 @@ body {
   .no-print, .topbar, #toasts { display: none !important; }
   .page { padding: 0; max-width: none; }
   .invoice { box-shadow: none; margin: 0; max-width: none !important; padding: 0; }
+  /* A4 height minus the 12 mm margins is 273 mm; a little less keeps it on one page. */
+  .invoice.paper-a4 { min-height: 270mm; }
 }

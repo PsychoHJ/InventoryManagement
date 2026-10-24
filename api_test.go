@@ -199,6 +199,13 @@ func TestImagesAndSettings(t *testing.T) {
 
 	_, p = call(t, srv, "PUT", "/api/settings", Settings{Language: "ar", StoreName: "متجر النور", LogoSize: 1000, LogoAlign: "x", Paper: "receipt", LowStock: -3})
 	st := p.DB.Settings
+	if st.AccentColor != "#714b67" || st.RowColor != "#f3edf2" || st.ShowPaid {
+		t.Fatalf("bad colors not replaced with defaults: %+v", st)
+	}
+	_, p = call(t, srv, "PUT", "/api/settings", Settings{AccentColor: "#1A2B3C", RowColor: "#eeeeee", ShowPaid: true})
+	if p.DB.Settings.AccentColor != "#1a2b3c" || p.DB.Settings.RowColor != "#eeeeee" || !p.DB.Settings.ShowPaid {
+		t.Fatalf("colors not saved: %+v", p.DB.Settings)
+	}
 	if st.Language != "ar" || st.StoreName != "متجر النور" || st.LogoSize != 300 || st.LogoAlign != "center" || st.Paper != "receipt" || st.LowStock != 0 {
 		t.Fatalf("settings not cleaned: %+v", st)
 	}
@@ -227,5 +234,21 @@ func TestNormalizePhone(t *testing.T) {
 		if got := normalizePhone(in); got != want {
 			t.Errorf("normalizePhone(%q) = %q, want %q", in, got, want)
 		}
+	}
+}
+
+func TestOldDataGetsNewDefaults(t *testing.T) {
+	dir := t.TempDir()
+	old := `{"version":1,"nextInvoice":4,"settings":{"language":"ar","storeName":"متجر"},"products":[],"customers":[],"invoices":[]}`
+	if err := os.WriteFile(filepath.Join(dir, "db.json"), []byte(old), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	s, err := OpenStore(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	st := s.db.Settings
+	if st.StoreName != "متجر" || st.AccentColor != "#714b67" || st.RowColor != "#f3edf2" || !st.ShowPaid || s.db.NextInvoice != 4 {
+		t.Fatalf("defaults missing after upgrade: %+v next %d", st, s.db.NextInvoice)
 	}
 }

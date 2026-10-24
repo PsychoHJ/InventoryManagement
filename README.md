@@ -16,7 +16,7 @@ The home page is a grid with the main parts of the system:
 | **Customers** | Customers are saved automatically with each sale (matched by phone number). You can also add or edit them and see how much each one bought. |
 | **Invoices** | Every sale, newest first, with search. Open one to print it, or delete it and choose whether the pieces go back to stock. |
 | **Reports** | Sales today, this month and in total, the value of your stock, low stock items and best sellers. |
-| **Settings** | Store name, logo (upload, size and position), invoice title, header and footer text, paper size (A4 or 80 mm receipt printer), language and low stock warning level. A live preview shows the invoice as you change things. |
+| **Settings** | Store name, logo (upload, size and position), invoice title, header and footer text, accent color for the invoice text, fill color for the even table rows (A4), a "PAID" stamp under the total, paper size (A4 or 80 mm receipt printer), language and low stock warning level. A live preview shows the invoice as you change things. |
 
 ## How to use it (Windows)
 

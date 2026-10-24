@@ -84,6 +84,8 @@ func normalizePhone(v string) string {
 
 var imageNameRe = regexp.MustCompile(`^[0-9a-f]{16}\.(jpg|png|webp|gif)$`)
 
+var colorRe = regexp.MustCompile(`^#[0-9a-fA-F]{6}$`)
+
 func validImageName(n string) bool { return imageNameRe.MatchString(n) }
 
 func readJSON(r *http.Request, v any) error {
@@ -473,6 +475,15 @@ func (s *Store) saveSettings(w http.ResponseWriter, r *http.Request) {
 		if in.LowStock > maxQty {
 			in.LowStock = maxQty
 		}
+		def := defaultSettings()
+		if !colorRe.MatchString(in.AccentColor) {
+			in.AccentColor = def.AccentColor
+		}
+		if !colorRe.MatchString(in.RowColor) {
+			in.RowColor = def.RowColor
+		}
+		in.AccentColor = strings.ToLower(in.AccentColor)
+		in.RowColor = strings.ToLower(in.RowColor)
 		if db.Settings.Logo != in.Logo {
 			oldLogo = db.Settings.Logo
 		}

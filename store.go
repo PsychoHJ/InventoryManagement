@@ -63,8 +63,11 @@ type Settings struct {
 	InvoiceTitle  string `json:"invoiceTitle"`
 	Header        string `json:"header"`
 	Footer        string `json:"footer"`
-	Paper         string `json:"paper"`    // "a4" or "receipt" (80 mm)
-	LowStock      int64  `json:"lowStock"` // warn when stock is at or below this
+	Paper         string `json:"paper"`       // "a4" or "receipt" (80 mm)
+	LowStock      int64  `json:"lowStock"`    // warn when stock is at or below this
+	AccentColor   string `json:"accentColor"` // text accent on the invoice, "#rrggbb"
+	RowColor      string `json:"rowColor"`    // fill of the even table rows on A4, "#rrggbb"
+	ShowPaid      bool   `json:"showPaid"`    // print "PAID" under the total
 }
 
 type DB struct {
@@ -94,6 +97,9 @@ func defaultSettings() Settings {
 		InvoiceTitle:  "",
 		Paper:         "a4",
 		LowStock:      5,
+		AccentColor:   "#714b67",
+		RowColor:      "#f3edf2",
+		ShowPaid:      true,
 	}
 }
 

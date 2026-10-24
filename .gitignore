@@ -1,0 +1,6 @@
+# App data created when the app runs
+data/
+
+# Build output
+dist/
+*.exe

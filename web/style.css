@@ -118,16 +118,14 @@ body {
 .paper-a4 .inv-table th, .paper-a4 .inv-table td { border: 1px solid #999; padding: 6px 8px; }
 .paper-a4 .inv-table tbody tr:nth-child(even) td { background: var(--row); }
 .paper-a4 .inv-table .inv-total td { border: 1px solid #999; }
-/* "PAID" sits under the total on the start side: left in English, right in Arabic. */
-.inv-paid-row { margin-top: 14px; text-align: start; }
-.inv-paid { display: inline-block; padding: 4px 18px; border: 3px solid var(--accent); border-radius: 6px; color: var(--accent);
-  font-size: 1.5em; font-weight: 800; letter-spacing: .15em; transform: rotate(-6deg); }
+/* "PAID" is plain bold text under the total on the start side: left in English, right in Arabic. */
+.inv-paid-row { margin-top: 10px; text-align: start; }
+.inv-paid { font-size: 1.3em; font-weight: 700; color: var(--accent); }
 .inv-foot { margin-top: 24px; text-align: center; white-space: pre-line; }
 .paper-a4 .inv-foot { margin-top: auto; padding-top: 24px; }
 .paper-receipt .inv-store { font-size: 1.3em; }
 .paper-receipt .inv-meta { display: block; }
 .paper-receipt .inv-table th, .paper-receipt .inv-table td { padding: 3px 2px; }
-.paper-receipt .inv-paid { font-size: 1.2em; }
 
 /* ---------- toasts ---------- */
 #toasts { position: fixed; bottom: 16px; inset-inline-end: 16px; z-index: 2000; display: flex; flex-direction: column; gap: 8px; }

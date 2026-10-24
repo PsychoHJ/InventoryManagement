@@ -350,7 +350,10 @@ func (s *Store) createSale(w http.ResponseWriter, r *http.Request) {
 		for i, p := range db.Products {
 			index[p.ID] = i
 		}
-		inv := Invoice{ID: newID(), Number: db.NextInvoice, Date: now(), Items: []InvoiceItem{}}
+		when := time.Now()
+		inv := Invoice{ID: newID(), Number: db.NextInvoice, Date: when.Format(time.RFC3339), Items: []InvoiceItem{}}
+		// Taken here; if the sale is refused below, mutate rolls it back.
+		inv.Code, inv.Year, inv.Seq = db.nextCode(when)
 		for _, pid := range order {
 			i, ok := index[pid]
 			if !ok {

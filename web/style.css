@@ -118,9 +118,10 @@ body {
 .paper-a4 .inv-table th, .paper-a4 .inv-table td { border: 1px solid #999; padding: 6px 8px; }
 .paper-a4 .inv-table tbody tr:nth-child(even) td { background: var(--row); }
 .paper-a4 .inv-table .inv-total td { border: 1px solid #999; }
-/* "PAID" is plain bold text under the total on the start side: left in English, right in Arabic. */
-.inv-paid-row { margin-top: 10px; text-align: start; }
-.inv-paid { font-size: 1.3em; font-weight: 700; color: var(--accent); }
+/* "PAID" is bold text in its own cell right under the total amount, the same width. */
+.inv-table .inv-paid-row td { border: 0; }
+.inv-table .inv-paid-row .inv-paid { text-align: center; font-size: 1.15em; font-weight: 700; color: var(--accent); }
+.paper-a4 .inv-table .inv-paid-row .inv-paid { border: 1px solid #999; }
 .inv-foot { margin-top: 24px; text-align: center; white-space: pre-line; }
 .paper-a4 .inv-foot { margin-top: auto; padding-top: 24px; }
 .paper-receipt .inv-store { font-size: 1.3em; }

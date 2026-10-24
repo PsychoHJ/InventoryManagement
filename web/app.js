@@ -33,7 +33,7 @@ const I18N = {
     invoice: 'Invoice', invoiceNo: 'Invoice no.', date: 'Date', product: 'Product', qty: 'Qty',
     noInvoices: 'No invoices yet.', print: 'Print', shown: '{n} invoices shown', sum: 'Sum',
     filterCustomer: 'Invoices of {name}', showAll: 'Show all',
-    deleteInvoice: 'Delete invoice', deleteInvoiceQ: 'Delete invoice #{n}?',
+    deleteInvoice: 'Delete invoice', deleteInvoiceQ: 'Delete invoice {n}?',
     deleteRestock: 'Delete and return the pieces to stock', deleteOnly: 'Delete only (keep stock as it is)',
     invoiceGone: 'This invoice does not exist.',
     today: 'Today', thisMonth: 'This month', allTime: 'All time', salesCount: '{n} invoices',
@@ -824,7 +824,7 @@ function renderInvoices(customerId) {
   const draw = () => {
     const list = state.db.invoices
       .filter(i => !customerId || i.customerId === customerId)
-      .filter(i => matches(q.replace(/^#/, ''), i.number, i.customerName, i.customerPhone, normPhone(i.customerPhone)))
+      .filter(i => matches(q.replace(/^#/, ''), invCode(i), i.customerName, i.customerPhone, normPhone(i.customerPhone)))
       .sort((a, b) => b.number - a.number);
     if (!list.length) {
       $('#i-table').innerHTML = `<div class="text-center text-secondary p-5">${state.db.invoices.length ? t('noResults') : t('noInvoices')}</div>`;
@@ -834,7 +834,7 @@ function renderInvoices(customerId) {
     $('#i-table').innerHTML = `<div class="table-responsive bg-white rounded shadow-sm"><table class="table table-hover table-click align-middle m-0">
       <thead><tr><th>#</th><th>${t('date')}</th><th>${t('customer')}</th><th>${t('phone')}</th><th class="text-end">${t('pcs')}</th><th class="text-end">${t('total')}</th></tr></thead>
       <tbody>${list.map(i => `<tr data-id="${esc(i.id)}">
-        <td class="num fw-semibold">${i.number}</td>
+        <td class="num fw-semibold"><span dir="ltr">${esc(invCode(i))}</span></td>
         <td class="num"><span dir="ltr">${fmtDate(i.date)}</span></td>
         <td><bdi>${esc(i.customerName)}</bdi></td>
         <td class="num"><span dir="ltr">${esc(i.customerPhone)}</span></td>
@@ -847,6 +847,16 @@ function renderInvoices(customerId) {
   };
   $('#i-search').oninput = e => { q = e.target.value; draw(); };
   draw();
+}
+
+// The printed invoice number, e.g. INV-HS-2026-00001 (set by the program).
+function invCode(inv) { return inv.code || String(inv.number); }
+
+// What the next invoice will be called; only used for the settings preview.
+function nextInvoiceCode() {
+  const y = new Date().getFullYear();
+  const used = (state.db.yearCounters || {})[y] || 0;
+  return `INV-HS-${y}-${String(used + 1).padStart(5, '0')}`;
 }
 
 // Builds the printable invoice. Used by the invoice page and the settings preview.
@@ -862,7 +872,7 @@ function invoiceHtml(inv, s) {
     ${logo || headText ? `<div class="inv-head align-${align}">${logo}${headText ? `<div class="inv-head-text">${headText}</div>` : ''}</div>` : ''}
     <div class="inv-title"><bdi>${esc(s.invoiceTitle || t('invoice'))}</bdi></div>
     <div class="inv-meta">
-      <div>${t('invoiceNo')}: <b class="num">${inv.number}</b></div>
+      <div>${t('invoiceNo')}: <b class="num" dir="ltr">${esc(invCode(inv))}</b></div>
       <div>${t('date')}: <b class="num" dir="ltr">${fmtDate(inv.date)}</b></div>
     </div>
     <div class="inv-cust">
@@ -883,9 +893,8 @@ function invoiceHtml(inv, s) {
         <td colspan="3">${t('total')}</td>
         <td class="r num">${int(pieces)}</td>
         <td class="r">${money(inv.total)}</td>
-      </tr></tfoot>
+      </tr>${s.showPaid ? `<tr class="inv-paid-row"><td colspan="4" class="inv-blank"></td><td class="inv-paid">${t('paid')}</td></tr>` : ''}</tfoot>
     </table>
-    ${s.showPaid ? `<div class="inv-paid-row"><span class="inv-paid">${t('paid')}</span></div>` : ''}
     ${s.footer ? `<div class="inv-foot">${rich(s.footer)}</div>` : ''}
   </div>`;
 }
@@ -908,7 +917,7 @@ function renderInvoice(id) {
   const s = state.db.settings;
   $('#page-style').textContent = pageCss(s);
   $('#app').innerHTML = `
-    ${topbar(t('invoice') + ' #' + inv.number)}
+    ${topbar(t('invoice') + ' ' + invCode(inv))}
     <div class="page">
       <div class="d-flex gap-2 mb-3 no-print">
         <a class="btn btn-outline-secondary" href="#/invoices"><i class="bi bi-arrow-${lang() === 'ar' ? 'right' : 'left'}"></i> ${t('invoices')}</a>
@@ -924,7 +933,7 @@ function renderInvoice(id) {
       <div class="modal-header"><h5 class="modal-title">${t('deleteInvoice')}</h5>
         <button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
       <div class="modal-body">
-        <p class="fs-5">${esc(t('deleteInvoiceQ', { n: inv.number }))}</p>
+        <p class="fs-5">${esc(t('deleteInvoiceQ', { n: invCode(inv) }))}</p>
         <div class="d-grid gap-2">
           <button class="btn btn-danger" data-restock="1"><i class="bi bi-arrow-counterclockwise"></i> ${t('deleteRestock')}</button>
           <button class="btn btn-outline-danger" data-restock="0"><i class="bi bi-trash"></i> ${t('deleteOnly')}</button>
@@ -1064,7 +1073,7 @@ function renderSettings() {
 
   const f = $('#sf');
   const sample = {
-    number: state.db.nextInvoice, date: new Date().toISOString(),
+    code: nextInvoiceCode(), date: new Date().toISOString(),
     customerName: t('sampleCustomer'), customerPhone: '0770 000 0000', customerAddress: lang() === 'ar' ? 'بغداد' : 'Baghdad',
     items: [
       { name: t('sampleProduct') + ' 1', price: 25000, qty: 2, total: 50000 },

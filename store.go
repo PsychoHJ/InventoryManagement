@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"sync"
 	"time"
 )
@@ -43,7 +44,10 @@ type InvoiceItem struct {
 
 type Invoice struct {
 	ID              string        `json:"id"`
-	Number          int64         `json:"number"`
+	Number          int64         `json:"number"` // running order of all invoices, never reused
+	Code            string        `json:"code"`   // printed number, e.g. INV-HS-2026-00001
+	Year            int           `json:"year"`
+	Seq             int64         `json:"seq"` // position within its year, starts at 1
 	Date            string        `json:"date"`
 	CustomerID      string        `json:"customerId"`
 	CustomerName    string        `json:"customerName"`
@@ -71,12 +75,15 @@ type Settings struct {
 }
 
 type DB struct {
-	Version     int        `json:"version"`
-	NextInvoice int64      `json:"nextInvoice"`
-	Settings    Settings   `json:"settings"`
-	Products    []Product  `json:"products"`
-	Customers   []Customer `json:"customers"`
-	Invoices    []Invoice  `json:"invoices"`
+	Version     int   `json:"version"`
+	NextInvoice int64 `json:"nextInvoice"`
+	// Last sequence number used in each year ("2026": 12). Kept even when
+	// invoices are deleted, so a printed number is never given out twice.
+	YearCounters map[string]int64 `json:"yearCounters"`
+	Settings     Settings         `json:"settings"`
+	Products     []Product        `json:"products"`
+	Customers    []Customer       `json:"customers"`
+	Invoices     []Invoice        `json:"invoices"`
 }
 
 const (
@@ -150,8 +157,63 @@ func OpenStore(dir string) (*Store, error) {
 		}
 	}
 	s.normalize()
+	if s.addMissingCodes() {
+		if err := s.saveLocked(); err != nil {
+			return nil, err
+		}
+	}
 	s.sweepImages()
 	return s, nil
+}
+
+const invoicePrefix = "INV-HS-"
+
+// invoiceCode gives the printed invoice number, e.g. INV-HS-2026-00001.
+// The number has at least five digits and simply grows past 99999.
+func invoiceCode(year int, seq int64) string {
+	return fmt.Sprintf("%s%d-%05d", invoicePrefix, year, seq)
+}
+
+// nextCode takes the next sequence number for the year of t.
+func (db *DB) nextCode(t time.Time) (code string, year int, seq int64) {
+	year = t.Year()
+	key := strconv.Itoa(year)
+	seq = db.YearCounters[key] + 1
+	db.YearCounters[key] = seq
+	return invoiceCode(year, seq), year, seq
+}
+
+// addMissingCodes gives invoices saved by older versions (which only had a
+// plain number) a code in the new style, in their original order, and makes
+// sure the year counters are never below a code already in use.
+func (s *Store) addMissingCodes() bool {
+	changed := false
+	for _, inv := range s.db.Invoices {
+		if inv.Code != "" {
+			key := strconv.Itoa(inv.Year)
+			if inv.Seq > s.db.YearCounters[key] {
+				s.db.YearCounters[key] = inv.Seq
+				changed = true
+			}
+		}
+	}
+	order := make([]int, 0)
+	for i, inv := range s.db.Invoices {
+		if inv.Code == "" {
+			order = append(order, i)
+		}
+	}
+	sort.Slice(order, func(a, b int) bool { return s.db.Invoices[order[a]].Number < s.db.Invoices[order[b]].Number })
+	for _, i := range order {
+		inv := &s.db.Invoices[i]
+		t, err := time.Parse(time.RFC3339, inv.Date)
+		if err != nil {
+			t = time.Now()
+		}
+		inv.Code, inv.Year, inv.Seq = s.db.nextCode(t)
+		changed = true
+	}
+	return changed
 }
 
 func stripBOM(b []byte) []byte {
@@ -165,6 +227,9 @@ func (s *Store) normalize() {
 	}
 	if s.db.Customers == nil {
 		s.db.Customers = []Customer{}
+	}
+	if s.db.YearCounters == nil {
+		s.db.YearCounters = map[string]int64{}
 	}
 	if s.db.Invoices == nil {
 		s.db.Invoices = []Invoice{}

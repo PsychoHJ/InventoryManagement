@@ -59,6 +59,11 @@ refused if there are not enough pieces in stock. A finished invoice keeps its
 own copy of the product names and prices, so changing a price later does not
 change old invoices.
 
+Invoices are numbered `INV-HS-<year>-<number>`, for example
+`INV-HS-2026-00001`, then `INV-HS-2026-00002`. The number has five digits,
+starts again at 00001 every new year, and is never given out twice, even if
+an invoice is deleted.
+
 ## Building from source
 
 You need [Go](https://go.dev/dl/) 1.24 or newer.

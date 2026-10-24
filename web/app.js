@@ -44,6 +44,8 @@ const I18N = {
     logoAlign: 'Logo position', alignStart: 'Start', alignCenter: 'Center', alignEnd: 'End',
     invoiceDesign: 'Invoice', invoiceTitle: 'Invoice title', invoiceTitlePh: 'Invoice',
     header: 'Header text', headerPh: 'Address, phone numbers…', footer: 'Footer text', footerPh: 'Thank you for your visit!',
+    paid: 'PAID', showPaid: 'Show “PAID” under the total',
+    accentColor: 'Accent color (text)', rowColor: 'Even rows fill color (A4)',
     paper: 'Paper size', paperA4: 'A4 page', paperReceipt: 'Receipt printer (80 mm)',
     lowStockAt: 'Warn about low stock at (pieces)', preview: 'Preview', dataFolder: 'Data folder',
     dataNote: 'All data and pictures are saved in this folder. To back up or move the app, copy the whole app folder.',
@@ -104,6 +106,8 @@ const I18N = {
     logoAlign: 'موضع الشعار', alignStart: 'البداية', alignCenter: 'الوسط', alignEnd: 'النهاية',
     invoiceDesign: 'الفاتورة', invoiceTitle: 'عنوان الفاتورة', invoiceTitlePh: 'فاتورة',
     header: 'نص الترويسة', headerPh: 'العنوان، أرقام الهاتف…', footer: 'نص التذييل', footerPh: 'شكراً لزيارتكم!',
+    paid: 'مدفوع', showPaid: 'إظهار «مدفوع» تحت المجموع',
+    accentColor: 'لون التمييز (النصوص)', rowColor: 'لون تعبئة الصفوف الزوجية (A4)',
     paper: 'حجم الورق', paperA4: 'ورقة A4', paperReceipt: 'طابعة إيصالات (80 ملم)',
     lowStockAt: 'التنبيه عند انخفاض المخزون إلى (قطعة)', preview: 'معاينة', dataFolder: 'مجلد البيانات',
     dataNote: 'كل البيانات والصور محفوظة في هذا المجلد. للنسخ الاحتياطي أو النقل انسخ مجلد التطبيق كاملاً.',
@@ -853,7 +857,8 @@ function invoiceHtml(inv, s) {
     (s.header ? `<div class="prewrap">${rich(s.header)}</div>` : '');
   const logo = s.logo ? `<img src="${imgUrl(s.logo)}" alt="" style="height:${Number(s.logoSize) || 80}px">` : '';
   const pieces = inv.items.reduce((sum, it) => sum + it.qty, 0);
-  return `<div class="invoice paper-${s.paper === 'receipt' ? 'receipt' : 'a4'}">
+  const style = `--accent:${safeColor(s.accentColor, '#714b67')};--row:${safeColor(s.rowColor, '#f3edf2')}`;
+  return `<div class="invoice paper-${s.paper === 'receipt' ? 'receipt' : 'a4'}" style="${style}">
     ${logo || headText ? `<div class="inv-head align-${align}">${logo}${headText ? `<div class="inv-head-text">${headText}</div>` : ''}</div>` : ''}
     <div class="inv-title"><bdi>${esc(s.invoiceTitle || t('invoice'))}</bdi></div>
     <div class="inv-meta">
@@ -874,12 +879,19 @@ function invoiceHtml(inv, s) {
         <td class="r num">${int(it.qty)}</td>
         <td class="r num">${int(it.total)}</td>
       </tr>`).join('')}</tbody>
+      <tfoot><tr class="inv-total">
+        <td colspan="3">${t('total')}</td>
+        <td class="r num">${int(pieces)}</td>
+        <td class="r">${money(inv.total)}</td>
+      </tr></tfoot>
     </table>
-    <div class="d-flex justify-content-between mt-2 text-secondary"><span>${t('items')}: <span class="num">${int(inv.items.length)}</span></span><span><span class="num">${int(pieces)}</span> ${t('pcs')}</span></div>
-    <div class="inv-sum"><span>${t('total')}</span><span>${money(inv.total)}</span></div>
+    ${s.showPaid ? `<div class="inv-paid-row"><span class="inv-paid">${t('paid')}</span></div>` : ''}
     ${s.footer ? `<div class="inv-foot">${rich(s.footer)}</div>` : ''}
   </div>`;
 }
+
+// Only a plain #rrggbb value goes into the page, never anything else.
+function safeColor(v, fallback) { return /^#[0-9a-fA-F]{6}$/.test(v || '') ? v : fallback; }
 
 function pageCss(s) {
   return s.paper === 'receipt'
@@ -1017,6 +1029,14 @@ function renderSettings() {
             <h5 class="mt-4 mb-3">${t('invoiceDesign')}</h5>
             <div class="form-check mb-3"><input class="form-check-input" type="checkbox" name="showStoreName" id="sf-show"${d.showStoreName ? ' checked' : ''}>
               <label class="form-check-label" for="sf-show">${t('showStoreName')}</label></div>
+            <div class="form-check mb-3"><input class="form-check-input" type="checkbox" name="showPaid" id="sf-paid"${d.showPaid ? ' checked' : ''}>
+              <label class="form-check-label" for="sf-paid">${t('showPaid')}</label></div>
+            <div class="row g-3 mb-3">
+              <div class="col-6"><label class="form-label">${t('accentColor')}</label>
+                <input type="color" class="form-control form-control-color w-100" name="accentColor" value="${esc(d.accentColor)}"></div>
+              <div class="col-6"><label class="form-label">${t('rowColor')}</label>
+                <input type="color" class="form-control form-control-color w-100" name="rowColor" value="${esc(d.rowColor)}"></div>
+            </div>
             <div class="mb-3"><label class="form-label">${t('invoiceTitle')}</label>
               <input class="form-control" name="invoiceTitle" maxlength="100" dir="auto" placeholder="${esc(t('invoiceTitlePh'))}" value="${esc(d.invoiceTitle)}"></div>
             <div class="mb-3"><label class="form-label">${t('header')}</label>
@@ -1049,8 +1069,9 @@ function renderSettings() {
     items: [
       { name: t('sampleProduct') + ' 1', price: 25000, qty: 2, total: 50000 },
       { name: t('sampleProduct') + ' 2', price: 7500, qty: 3, total: 22500 },
+      { name: t('sampleProduct') + ' 3', price: 12000, qty: 1, total: 12000 },
     ],
-    total: 72500,
+    total: 84500, // 50,000 + 22,500 + 12,000
   };
   const preview = () => { $('#sf-preview').innerHTML = invoiceHtml(sample, d); };
   const read = () => {
@@ -1065,6 +1086,9 @@ function renderSettings() {
     d.header = f.header.value;
     d.footer = f.footer.value;
     d.paper = f.paper.value;
+    d.showPaid = f.showPaid.checked;
+    d.accentColor = f.accentColor.value;
+    d.rowColor = f.rowColor.value;
     $('#sf-size-v').textContent = d.logoSize;
     preview();
   };

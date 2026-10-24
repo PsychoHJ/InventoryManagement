@@ -3,12 +3,14 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 )
 
 type payload struct {
@@ -250,5 +252,89 @@ func TestOldDataGetsNewDefaults(t *testing.T) {
 	st := s.db.Settings
 	if st.StoreName != "متجر" || st.AccentColor != "#714b67" || st.RowColor != "#f3edf2" || !st.ShowPaid || s.db.NextInvoice != 4 {
 		t.Fatalf("defaults missing after upgrade: %+v next %d", st, s.db.NextInvoice)
+	}
+}
+
+func TestInvoiceCodes(t *testing.T) {
+	srv, _, dir := newTestServer(t)
+	_, p := call(t, srv, "POST", "/api/products", Product{Name: "a", Price: 1000, Stock: 10})
+	id := p.DB.Products[0].ID
+	sale := func(qty int) (int, payload) {
+		return call(t, srv, "POST", "/api/sales", map[string]any{
+			"customer": map[string]string{"name": "x"},
+			"items":    []map[string]any{{"productId": id, "qty": qty}},
+		})
+	}
+	year := time.Now().Year()
+	_, p = sale(1)
+	if got, want := p.DB.Invoices[0].Code, fmt.Sprintf("INV-HS-%d-00001", year); got != want {
+		t.Fatalf("first code %q, want %q", got, want)
+	}
+	// A refused sale must not use up a number.
+	if code, _ := sale(100); code != http.StatusConflict {
+		t.Fatal("expected stock error")
+	}
+	_, p = sale(1)
+	if got, want := p.DB.Invoices[1].Code, fmt.Sprintf("INV-HS-%d-00002", year); got != want {
+		t.Fatalf("second code %q, want %q", got, want)
+	}
+	// Deleting the newest invoice does not give its number out again.
+	call(t, srv, "DELETE", "/api/invoices/"+p.DB.Invoices[1].ID, nil)
+	_, p = sale(1)
+	if got, want := p.DB.Invoices[1].Code, fmt.Sprintf("INV-HS-%d-00003", year); got != want {
+		t.Fatalf("code after delete %q, want %q", got, want)
+	}
+	// The counters survive a restart.
+	s2, err := OpenStore(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c, _, _ := s2.db.nextCode(time.Now()); c != fmt.Sprintf("INV-HS-%d-00004", year) {
+		t.Fatalf("after reopen next code is %q", c)
+	}
+}
+
+func TestInvoiceCodeYearsAndWidth(t *testing.T) {
+	db := DB{YearCounters: map[string]int64{}}
+	d := func(s string) time.Time { v, _ := time.Parse("2006-01-02", s); return v }
+	for _, c := range []struct{ date, want string }{
+		{"2026-12-31", "INV-HS-2026-00001"},
+		{"2026-12-31", "INV-HS-2026-00002"},
+		{"2027-01-01", "INV-HS-2027-00001"}, // a new year starts again at 00001
+		{"2027-01-02", "INV-HS-2027-00002"},
+	} {
+		if got, _, _ := db.nextCode(d(c.date)); got != c.want {
+			t.Fatalf("%s: got %s, want %s", c.date, got, c.want)
+		}
+	}
+	if got := invoiceCode(2026, 123456); got != "INV-HS-2026-123456" {
+		t.Fatalf("long number cut: %s", got)
+	}
+}
+
+func TestOldInvoicesGetCodes(t *testing.T) {
+	dir := t.TempDir()
+	old := `{"version":1,"nextInvoice":4,"settings":{},"products":[],"customers":[],"invoices":[
+	 {"id":"b","number":3,"date":"2026-02-01T10:00:00+03:00","items":[],"total":0},
+	 {"id":"a","number":1,"date":"2025-12-30T10:00:00+03:00","items":[],"total":0},
+	 {"id":"c","number":2,"date":"2026-01-05T10:00:00+03:00","items":[],"total":0}]}`
+	os.WriteFile(filepath.Join(dir, "db.json"), []byte(old), 0o644)
+	s, err := OpenStore(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := map[string]string{}
+	for _, inv := range s.db.Invoices {
+		got[inv.ID] = inv.Code
+	}
+	if got["a"] != "INV-HS-2025-00001" || got["c"] != "INV-HS-2026-00001" || got["b"] != "INV-HS-2026-00002" {
+		t.Fatalf("old invoices numbered wrong: %v", got)
+	}
+	if s.db.YearCounters["2026"] != 2 {
+		t.Fatalf("counter = %d", s.db.YearCounters["2026"])
+	}
+	raw, _ := os.ReadFile(filepath.Join(dir, "db.json"))
+	if !strings.Contains(string(raw), "INV-HS-2026-00002") {
+		t.Fatal("codes were not saved to db.json")
 	}
 }
